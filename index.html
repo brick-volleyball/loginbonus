@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f1a17">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ログボ巡回">
+<title>ログボ巡回（仮）</title>
+<link rel="apple-touch-icon" id="appleIcon">
+<style>
+:root{
+  --bg:#1f1a17; --card:#2b2420; --line:#3d342e; --text:#f5ede6; --sub:#b8a99c;
+  --accent:#ffb347; --accent2:#ff7e5f; --ok:#5fd38d; --warn:#ffd166; --ng:#ff6b6b;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif}
+body{padding:env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 72px)}
+header{padding:16px 18px 6px;display:flex;align-items:center;justify-content:space-between}
+header h1{font-size:18px;margin:0;letter-spacing:.05em}
+header .date{font-size:12px;color:var(--sub)}
+main{padding:8px 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:14px}
+.muted{color:var(--sub);font-size:13px}
+.big{font-size:26px;font-weight:700;margin:6px 0 4px;word-break:break-all}
+.progress{height:10px;background:var(--line);border-radius:6px;overflow:hidden;margin:10px 0 4px}
+.progress>div{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .3s}
+button{font:inherit;border:none;border-radius:14px;padding:14px 16px;cursor:pointer;color:var(--text);background:var(--line)}
+button:active{transform:scale(.98)}
+.btn-main{width:100%;font-size:20px;font-weight:700;padding:20px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#2a1a10}
+.btn-ok{width:100%;font-size:19px;font-weight:700;padding:18px;background:var(--ok);color:#0f2a1a}
+.row{display:flex;gap:10px;margin-top:10px}
+.row>button{flex:1}
+.small{padding:8px 12px;font-size:13px;border-radius:10px}
+.notice{border-radius:12px;padding:10px 12px;font-size:14px;margin:10px 0}
+.notice.warn{background:#4a3b12;color:var(--warn)}
+.notice.ng{background:#4a1d1d;color:#ffb3b3}
+.notice.ok{background:#173a26;color:#b7f5cf}
+ul.list{list-style:none;margin:0;padding:0}
+ul.list li{display:flex;align-items:center;gap:10px;padding:12px 4px;border-bottom:1px solid var(--line)}
+ul.list li:last-child{border-bottom:none}
+.badge{font-size:11px;padding:3px 8px;border-radius:20px;background:var(--line);color:var(--sub);white-space:nowrap}
+.badge.done{background:#173a26;color:var(--ok)}
+.badge.skip{background:#3a3217;color:var(--warn)}
+.badge.now{background:#4a2d14;color:var(--accent)}
+.grow{flex:1;min-width:0}
+.name{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.url{font-size:11px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.off{opacity:.45}
+label{display:block;font-size:13px;color:var(--sub);margin:12px 0 4px}
+input,textarea,select{width:100%;font:inherit;font-size:16px;color:var(--text);background:#1a1512;border:1px solid var(--line);border-radius:10px;padding:11px}
+textarea{min-height:70px}
+.check{display:flex;align-items:center;gap:8px;margin-top:12px;color:var(--text);font-size:15px}
+.check input{width:22px;height:22px}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:#171310;border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;background:none;border-radius:0;padding:12px 0 10px;font-size:12px;color:var(--sub)}
+nav button.active{color:var(--accent)}
+nav .ico{display:block;font-size:20px;margin-bottom:2px}
+.center{text-align:center}
+.celebrate{font-size:64px;text-align:center;margin:10px 0}
+.hint{font-size:12px;color:var(--sub);line-height:1.6}
+.hint code{background:#1a1512;padding:1px 5px;border-radius:5px;color:var(--accent)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;z-index:10}
+.modal .sheet{background:var(--card);width:100%;max-height:92vh;overflow:auto;border-radius:20px 20px 0 0;
+  padding:18px 18px calc(18px + env(safe-area-inset-bottom))}
+.hidden{display:none!important}
+.timer{font-variant-numeric:tabular-nums;font-size:15px;color:var(--accent)}
+</style>
+</head>
+<body>
+<header>
+  <h1>☀️ ログボ巡回<span class="muted">（仮）</span></h1>
+  <span class="date" id="dayLabel"></span>
+</header>
+<main id="view"></main>
+
+<nav>
+  <button data-tab="run"><span class="ico">▶️</span>巡回</button>
+  <button data-tab="list"><span class="ico">📋</span>登録</button>
+  <button data-tab="settings"><span class="ico">⚙️</span>設定</button>
+</nav>
+
+<div class="modal hidden" id="modal"><div class="sheet" id="sheet"></div></div>
+
+<script>
+/* ========= データ ========= */
+const KEY='logbo-junkai-v1';
+const defaultData={
+  items:[],
+  settings:{resetHour:4, autoNext:true, failSec:2},
+  log:{},        // { "2026-11-18": { itemId: {s:"done"|"skip", t:timestamp} } }
+  pending:null   // { id, t } 起動中のもの
+};
+let data=load();
+function load(){
+  try{const d=JSON.parse(localStorage.getItem(KEY));if(d)return Object.assign(structuredClone(defaultData),d);}catch(e){}
+  return structuredClone(defaultData);
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(data));}catch(e){}}
+const uid=()=>Math.random().toString(36).slice(2,10);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* 「今日」の判定：リセット時刻（例 4:00）より前は前日扱い */
+function dayKey(ts=Date.now()){
+  const d=new Date(ts-data.settings.resetHour*3600*1000);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function todayLog(){const k=dayKey();return data.log[k]||(data.log[k]={});}
+function pruneLog(){ // 30日分だけ残す
+  const keys=Object.keys(data.log).sort();while(keys.length>30)delete data.log[keys.shift()];
+}
+const enabledItems=()=>data.items.filter(i=>i.enabled);
+const queue=()=>{const l=todayLog();return enabledItems().filter(i=>!l[i.id]);};
+
+/* ========= 起動 ========= */
+function launch(item){
+  data.pending={id:item.id,t:Date.now()};save();
+  const url=item.url.trim();
+  if(/^https?:\/\//i.test(url)){
+    // Webサービス・ユニバーサルリンク
+    const w=window.open(url,'_blank');
+    if(!w) location.href=url;
+  }else{
+    // アプリのURLスキーム / intent://
+    location.href=url;
+  }
+  render();
+}
+
+/* ========= 画面 ========= */
+let tab=new URLSearchParams(location.search).get('start')?'run':'run';
+let tick=null;
+function render(){
+  document.getElementById('dayLabel').textContent=dayKey().replace(/-/g,'/')+' 分';
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  clearInterval(tick);
+  const v=document.getElementById('view');
+  if(tab==='run')v.innerHTML=runView();
+  if(tab==='list')v.innerHTML=listView();
+  if(tab==='settings')v.innerHTML=settingsView();
+  if(tab==='run'&&data.pending){
+    tick=setInterval(()=>{const el=document.getElementById('elapsed');if(el)el.textContent=elapsedText();},1000);
+  }
+}
+function elapsedSec(){return data.pending?Math.floor((Date.now()-data.pending.t)/1000):0;}
+function elapsedText(){const s=elapsedSec();return (s>=60?Math.floor(s/60)+'分':'')+(s%60)+'秒';}
+
+function runView(){
+  const all=enabledItems();
+  if(!all.length)return `<div class="card center"><p class="big">まだ何も登録されていません</p>
+    <p class="muted">「登録」タブからアプリやWebサービスを追加してください。</p>
+    <button class="btn-main" onclick="tab='list';openEdit()">＋ 最初の1つを登録</button></div>`;
+  const l=todayLog();
+  const doneN=all.filter(i=>l[i.id]).length;
+  const pct=Math.round(doneN/all.length*100);
+  let html=`<div class="card"><div class="muted">今日の進み具合</div>
+    <div class="progress"><div style="width:${pct}%"></div></div>
+    <div class="muted">${doneN} / ${all.length} 完了</div></div>`;
+
+  const pend=data.pending&&data.items.find(i=>i.id===data.pending.id);
+  const q=queue();
+
+  if(pend){
+    // 戻ってきた時の確認パネル
+    const s=elapsedSec();
+    let msg='';
+    if(s<data.settings.failSec)msg=`<div class="notice ng">すぐ戻ってきました。アプリが開かなかった可能性があります（URLを確認してください）。</div>`;
+    else if(pend.minSec&&s<pend.minSec)msg=`<div class="notice warn">目安の ${pend.minSec}秒 にまだ届いていません。ログボの受け取りは終わりましたか？</div>`;
+    else if(pend.minSec)msg=`<div class="notice ok">目安の時間は経過しています 👍</div>`;
+    const next=q.find(i=>i.id!==pend.id);
+    html+=`<div class="card">
+      <div class="muted">起動中</div>
+      <div class="big">${esc(pend.name)}</div>
+      ${pend.note?`<div class="muted">📝 ${esc(pend.note)}</div>`:''}
+      <div style="margin-top:8px">経過 <span class="timer" id="elapsed">${elapsedText()}</span></div>
+      ${msg}
+      <button class="btn-ok" onclick="finish('done')">✅ 受け取った${next&&data.settings.autoNext?' → 次へ':''}</button>
+      <div class="row">
+        <button onclick="launch(data.items.find(i=>i.id==='${pend.id}'))">🔁 もう一度開く</button>
+        <button onclick="finish('skip')">⏭ 今日はスキップ</button>
+      </div>
+      ${next?`<p class="muted" style="margin-top:12px">次：${esc(next.name)}</p>`:''}
+    </div>`;
+  }else if(q.length){
+    const cur=q[0];
+    html+=`<div class="card">
+      <div class="muted">次はこれ（残り ${q.length}件）</div>
+      <div class="big">${esc(cur.name)}</div>
+      ${cur.note?`<div class="muted">📝 ${esc(cur.note)}</div>`:''}
+      <div style="height:12px"></div>
+      <button class="btn-main" onclick="launch(data.items.find(i=>i.id==='${cur.id}'))">▶ 起動する</button>
+      <div class="row"><button class="small" onclick="markItem('${cur.id}','skip')">⏭ スキップ</button>
+      <button class="small" onclick="markItem('${cur.id}','done')">✔ もう受け取り済み</button></div>
+    </div>`;
+  }else{
+    html+=`<div class="card"><div class="celebrate">🎉</div>
+      <p class="big center">今日の巡回 完了！</p>
+      <p class="muted center">おつかれさまでした。</p></div>`;
+  }
+
+  html+=`<div class="card"><div class="muted" style="margin-bottom:6px">今日のリスト</div><ul class="list">`+
+    all.map(i=>{
+      const st=l[i.id];
+      const isNow=data.pending&&data.pending.id===i.id;
+      const b=isNow?'<span class="badge now">起動中</span>':st?.s==='done'?'<span class="badge done">完了</span>':st?.s==='skip'?'<span class="badge skip">スキップ</span>':'<span class="badge">未</span>';
+      return `<li><div class="grow"><div class="name">${esc(i.name)}</div></div>${b}
+        ${st?`<button class="small" onclick="undo('${i.id}')">戻す</button>`:`<button class="small" onclick="launch(data.items.find(x=>x.id==='${i.id}'))">開く</button>`}</li>`;
+    }).join('')+`</ul></div>`;
+  return html;
+}
+
+function finish(s){
+  const id=data.pending.id;
+  todayLog()[id]={s,t:Date.now()};
+  data.pending=null;pruneLog();save();
+  const q=queue();
+  // 「受け取った」をタップした操作そのものを使って次を起動（ユーザー操作扱いになるのでブロックされにくい）
+  if(s==='done'&&data.settings.autoNext&&q.length){launch(q[0]);return;}
+  render();
+}
+function markItem(id,s){todayLog()[id]={s,t:Date.now()};save();render();}
+function undo(id){delete todayLog()[id];save();render();}
+
+/* ========= 登録 ========= */
+function listView(){
+  let html=`<div class="card"><button class="btn-main" onclick="openEdit()">＋ 追加</button></div>`;
+  if(!data.items.length)return html+`<p class="muted center">登録はまだありません</p>`;
+  html+=`<div class="card"><div class="muted">上から順に起動します</div><ul class="list">`+
+    data.items.map((i,idx)=>`<li class="${i.enabled?'':'off'}">
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <button class="small" onclick="move(${idx},-1)" ${idx===0?'disabled':''}>▲</button>
+        <button class="small" onclick="move(${idx},1)" ${idx===data.items.length-1?'disabled':''}>▼</button>
+      </div>
+      <div class="grow" onclick="openEdit('${i.id}')">
+        <div class="name">${esc(i.name)} ${i.enabled?'':'<span class="badge">OFF</span>'}</div>
+        <div class="url">${esc(i.url)}</div>
+        ${i.minSec?`<div class="url">目安 ${i.minSec}秒</div>`:''}
+      </div>
+      <button class="small" onclick="openEdit('${i.id}')">編集</button></li>`).join('')+`</ul></div>`;
+  return html;
+}
+function move(idx,d){const a=data.items;[a[idx],a[idx+d]]=[a[idx+d],a[idx]];save();render();}
+
+function openEdit(id){
+  const it=id?data.items.find(i=>i.id===id):{name:'',url:'',minSec:'',note:'',enabled:true};
+  const sheet=document.getElementById('sheet');
+  sheet.innerHTML=`<h3 style="margin:0 0 4px">${id?'編集':'追加'}</h3>
+    <label>名前</label><input id="f_name" value="${esc(it.name)}" placeholder="例：〇〇ゲーム">
+    <label>開くURL</label><input id="f_url" value="${esc(it.url)}" placeholder="例：https://〜 / xxxx://" autocapitalize="off" autocorrect="off">
+    <div class="hint" style="margin-top:6px">
+      ・Webサービス：普通の <code>https://</code> のURL<br>
+      ・iPhoneのアプリ：URLスキーム（例 <code>line://</code>）か、アプリが開く <code>https://</code> のリンク<br>
+      ・Androidのアプリ：下でパッケージ名から作れます
+    </div>
+    <details style="margin-top:8px"><summary class="muted">Android：パッケージ名からURLを作る</summary>
+      <input id="f_pkg" placeholder="例：com.example.game" style="margin-top:6px" autocapitalize="off">
+      <button class="small" style="margin-top:6px" onclick="makeIntent()">URLを作成</button>
+      <div class="hint">パッケージ名はPlayストアのURLの <code>id=</code> の後ろの部分です。</div>
+    </details>
+    <label>目安の滞在秒数（任意）</label><input id="f_min" type="number" inputmode="numeric" value="${esc(it.minSec)}" placeholder="例：30（演出が終わるまでの時間）">
+    <label>メモ（任意）</label><input id="f_note" value="${esc(it.note)}" placeholder="例：ホーム画面の左上のプレゼント箱をタップ">
+    <div class="check"><input type="checkbox" id="f_en" ${it.enabled?'checked':''}> 巡回に含める</div>
+    <div class="row" style="margin-top:16px">
+      <button onclick="closeModal()">キャンセル</button>
+      <button style="background:var(--accent);color:#2a1a10;font-weight:700" onclick="saveEdit('${id||''}')">保存</button>
+    </div>
+    <div class="row">
+      <button class="small" onclick="testOpen()">🔗 テストで開く</button>
+      ${id?`<button class="small" style="background:#4a1d1d" onclick="delItem('${id}')">削除</button>`:''}
+    </div>`;
+  document.getElementById('modal').classList.remove('hidden');
+}
+function makeIntent(){
+  const p=document.getElementById('f_pkg').value.trim();if(!p)return;
+  document.getElementById('f_url').value=`intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=${p};end`;
+}
+function testOpen(){const u=document.getElementById('f_url').value.trim();if(!u)return;
+  /^https?:/i.test(u)?window.open(u,'_blank'):location.href=u;}
+function saveEdit(id){
+  const v={name:f_name.value.trim(),url:f_url.value.trim(),minSec:parseInt(f_min.value)||0,note:f_note.value.trim(),enabled:f_en.checked};
+  if(!v.name||!v.url){alert('名前とURLは必須です');return;}
+  if(id)Object.assign(data.items.find(i=>i.id===id),v);else data.items.push({id:uid(),...v});
+  save();closeModal();render();
+}
+function delItem(id){if(!confirm('削除しますか？'))return;data.items=data.items.filter(i=>i.id!==id);
+  if(data.pending?.id===id)data.pending=null;save();closeModal();render();}
+function closeModal(){document.getElementById('modal').classList.add('hidden');}
+document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});
+
+/* ========= 設定 ========= */
+function settingsView(){
+  const s=data.settings;
+  return `<div class="card">
+    <label>1日の切り替え時刻</label>
+    <select onchange="data.settings.resetHour=+this.value;save();render()">
+      ${Array.from({length:24},(_,h)=>`<option value="${h}" ${h===s.resetHour?'selected':''}>${h}:00</option>`).join('')}
+    </select>
+    <div class="hint">多くのゲームは4時や5時にログボが切り替わります。この時刻より前は「前日分」として扱います。</div>
+    <div class="check"><input type="checkbox" ${s.autoNext?'checked':''} onchange="data.settings.autoNext=this.checked;save()"> 「受け取った」を押したら次を自動で起動</div>
+    <label>「開けなかったかも」と判定する秒数</label>
+    <input type="number" inputmode="numeric" value="${s.failSec}" onchange="data.settings.failSec=+this.value||0;save()">
+  </div>
+  <div class="card">
+    <div class="muted">朝の自動起動に使うURL</div>
+    <input readonly value="${esc(location.href.split('?')[0])}?start=1" onclick="this.select()">
+    <div class="hint" style="margin-top:8px">
+      <b>iPhone：</b>ショートカット → オートメーション → 「アラーム（停止時）」→ アクション「URLを開く」にこのURL<br>
+      <b>Android：</b>Galaxyの「モードとルーチン」やGoogleアシスタントのルーティン等で、このページ（ホーム画面に追加したもの）を開く
+    </div>
+  </div>
+  <div class="card">
+    <div class="muted">バックアップ（機種変更・ブラウザ変更用）</div>
+    <div class="row"><button onclick="exportData()">⬇ 書き出し</button>
+    <button onclick="document.getElementById('imp').click()">⬆ 読み込み</button></div>
+    <input type="file" id="imp" accept=".json,application/json" class="hidden" onchange="importData(this)">
+  </div>
+  <div class="card"><button class="small" style="background:#4a1d1d" onclick="resetToday()">今日の記録をリセット</button></div>`;
+}
+function exportData(){
+  const b=new Blob([JSON.stringify({items:data.items,settings:data.settings},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='logbo-backup.json';a.click();
+}
+function importData(inp){
+  const f=inp.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{try{const d=JSON.parse(r.result);if(!Array.isArray(d.items))throw 0;
+    if(!confirm(`${d.items.length}件を読み込みます。今の登録は置き換わります。`))return;
+    data.items=d.items;if(d.settings)data.settings=Object.assign(data.settings,d.settings);save();render();alert('読み込みました');
+  }catch(e){alert('読み込めませんでした');}};r.readAsText(f);
+}
+function resetToday(){if(!confirm('今日の完了記録を消しますか？'))return;delete data.log[dayKey()];data.pending=null;save();render();}
+
+/* ========= イベント ========= */
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render();});
+// アプリから戻ってきた瞬間に画面を更新（=完了確認パネルが出る）
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){data=load();tab='run';render();}});
+window.addEventListener('pageshow',()=>{data=load();render();});
+
+/* ========= ホーム画面アイコン / manifest ========= */
+(function(){
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#1f1a17"/><circle cx="256" cy="300" r="120" fill="#ffb347"/><g stroke="#ff7e5f" stroke-width="26" stroke-linecap="round"><line x1="256" y1="70" x2="256" y2="130"/><line x1="90" y1="300" x2="40" y2="300"/><line x1="422" y1="300" x2="472" y2="300"/><line x1="130" y1="170" x2="95" y2="135"/><line x1="382" y1="170" x2="417" y2="135"/></g><rect x="0" y="380" width="512" height="132" fill="#1f1a17"/><path d="M200 300 l40 40 l80 -80" fill="none" stroke="#1f1a17" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const c=document.createElement('canvas');c.width=c.height=512;const img=new Image();
+  img.onload=()=>{c.getContext('2d').drawImage(img,0,0);const png=c.toDataURL('image/png');
+    document.getElementById('appleIcon').href=png;
+    const m={name:'ログボ巡回',short_name:'ログボ巡回',start_url:location.href.split('?')[0]+'?start=1',display:'standalone',
+      background_color:'#1f1a17',theme_color:'#1f1a17',icons:[{src:png,sizes:'512x512',type:'image/png'}]};
+    const l=document.createElement('link');l.rel='manifest';
+    l.href=URL.createObjectURL(new Blob([JSON.stringify(m)],{type:'application/json'}));document.head.appendChild(l);};
+  img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+})();
+
+render();
+</script>
+</body>
+</html>
